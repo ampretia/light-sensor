@@ -1,0 +1,62 @@
+{
+  "name": "mqtt-vue-colour",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "serve": "vue-cli-service serve",
+    "build": "vue-cli-service build",
+    "lint": "vue-cli-service lint",
+    "publish":"npm run build && scp -r ./dist/* matthew@192.168.1.150:/volume1/web/light/"
+  },
+  "dependencies": {
+    "apexcharts": "^3.35.0",
+    "buefy": "^0.9.4",
+    "core-js": "^3.6.5",
+    "http-proxy-middleware": "^2.0.4",
+    "mqtt": "^4.3.7",
+    "vue": "^2.6.11",
+    "vue-apexcharts": "^1.6.2",
+    "vue-axios": "^3.2.4",
+    "vue-canvas-gauges": "^0.0.0",
+    "vue-json-pretty": "^1.7.1",
+    "vue-router": "^3.2.0",
+    "vue-svg-gauge": "^1.2.1",
+    "vuex": "^3.4.0"
+  },
+  "devDependencies": {
+    "@vue/cli-plugin-babel": "~4.5.0",
+    "@vue/cli-plugin-eslint": "~4.5.0",
+    "@vue/cli-plugin-router": "~4.5.0",
+    "@vue/cli-plugin-vuex": "~4.5.0",
+    "@vue/cli-service": "~4.5.0",
+    "@vue/eslint-config-prettier": "^6.0.0",
+    "babel-eslint": "^10.1.0",
+    "eslint": "^6.7.2",
+    "eslint-plugin-prettier": "^3.1.3",
+    "eslint-plugin-vue": "^6.2.2",
+    "prettier": "^1.19.1",
+    "sass": "^1.26.5",
+    "sass-loader": "^8.0.2",
+    "vue-template-compiler": "^2.6.11"
+  },
+  "eslintConfig": {
+    "root": true,
+    "env": {
+      "node": true
+    },
+    "extends": [
+      "plugin:vue/essential",
+      "eslint:recommended",
+      "@vue/prettier"
+    ],
+    "parserOptions": {
+      "parser": "babel-eslint"
+    },
+    "rules": {}
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead"
+  ]
+}

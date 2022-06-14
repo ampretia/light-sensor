@@ -1,0 +1,12 @@
+[Unit]
+Description=Light Service
+After=network.target
+
+[Service]
+Type=idle
+Restart=on-failure
+User=matthew
+ExecStart=/bin/bash -c 'cd /home/matthew/github.com/light && /home/matthew/.local/bin/poetry run python rh.py'
+
+[Install]
+WantedBy=multi-user.target
