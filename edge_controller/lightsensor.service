@@ -6,7 +6,7 @@ After=network.target
 Type=idle
 Restart=on-failure
 User=matthew
-ExecStart=/bin/bash -c 'cd /home/matthew/github.com/light && /home/matthew/.local/bin/poetry run python rh.py'
+ExecStart=/bin/bash -c 'cd /home/matthew/github.com/light-sensor/edge-controller && /home/matthew/.local/bin/poetry run python rh.py'
 
 [Install]
 WantedBy=multi-user.target
