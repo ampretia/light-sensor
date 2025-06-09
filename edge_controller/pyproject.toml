@@ -1,12 +1,16 @@
-[Unit]
-Description=Light Service
-After=network.target
+[tool.poetry]
+name = "edge-controller"
+version = "0.1.0"
+description = ""
+authors = ["mbw <matthew@mh-white.com>"]
+readme = "README.md"
 
-[Service]
-Type=idle
-Restart=on-failure
-User=matthew
-ExecStart=/bin/bash -c 'cd /home/matthew/github.com/light && /home/matthew/.local/bin/poetry run python rh.py'
+[tool.poetry.dependencies]
+python = "^3.11"
+loguru = "^0.7.2"
+paho-mqtt = "^2.0.0"
 
-[Install]
-WantedBy=multi-user.target
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
