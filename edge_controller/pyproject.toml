@@ -9,6 +9,7 @@ readme = "README.md"
 python = "^3.11"
 loguru = "^0.7.2"
 paho-mqtt = "^2.0.0"
+pigpio = "^1.78"
 
 
 [build-system]
