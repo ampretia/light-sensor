@@ -16,7 +16,7 @@
 
 #include <RH_ASK.h>
 #ifdef RH_HAVE_HARDWARE_SPI
-#include <SPI.h> // Not actually used but needed to compile
+#include <SPI.h>  // Not actually used but needed to compile
 #endif
 
 #define MEASURE_INTERVAL 30000
@@ -27,20 +27,21 @@
 Adafruit_LTR390 ltr = Adafruit_LTR390();
 Adafruit_AS7341 as7341;
 
-
 RH_ASK driver;
 
 // State of the gain and resoultion of the LTR390
-int ltrGain;
-int ltrResoultion;
+int ltrUVGain = 1;
+int ltrALGain = 1;
+int ltrResoultion = 1;
 
 // AS7341 Gain
 as7341_gain_t asGain = AS7341_GAIN_0_5X;
 
+bool ltrOK = false;
+bool asOK = false;
 // Map the AGain from the enum to human-friendly value
 int mapASGain() {
-  switch (as7341.getGain())
-  {
+  switch (as7341.getGain()) {
     case AS7341_GAIN_0_5X:
       return 0;
     case AS7341_GAIN_1X:
@@ -63,36 +64,26 @@ int mapASGain() {
       return 256;
     case AS7341_GAIN_512X:
       return 512;
-
-
   }
 }
 
 int mapLTRGain() {
-  switch (ltr.getGain())
-  {
+  switch (ltr.getGain()) {
     case LTR390_GAIN_1:
-      ltrGain = 1;
-      break;
+      return 1;
     case LTR390_GAIN_3:
-      ltrGain = 3;
-      break;
+      return 3;
     case LTR390_GAIN_6:
-      ltrGain = 6;
-      break;
+      return 6;
     case LTR390_GAIN_9:
-      ltrGain = 9;
-      break;
+      return 9;
     case LTR390_GAIN_18:
-      ltrGain = 18;
-      break;
+      return 18;
   }
-  return ltrGain;
 }
 
 int mapLTRResoultion() {
-  switch (ltr.getResolution())
-  {
+  switch (ltr.getResolution()) {
     case LTR390_RESOLUTION_13BIT:
       ltrResoultion = 13;
       break;
@@ -119,111 +110,136 @@ int mapLTRResoultion() {
 /**
    Setup.
 */
-void setup()
-{
+void setup() {
   Serial.begin(115200);
 
   Serial.println("version 2");
-  if (!driver.init())
-  {
+  if (!driver.init()) {
     Serial.println("COMS Driver init failed");
   }
 
-  if (!ltr.begin())
-  {
-    Serial.println("Couldn't find LTR sensor!");
-    while (1)
-      delay(10);
+  uint8_t retry = 4;
+
+  while (!ltr.begin() && retry > 0) {
+    Serial.print("Couldn't find LTR sensor");
+    Serial.println(retry);
+    retry--;
+    delay(200);
   }
-  Serial.println("Found LTR sensor!");
+  ltrOK = !(retry == 0);
 
-  ltr.setMode(LTR390_MODE_UVS);
-  if (ltr.getMode() == LTR390_MODE_ALS)
-  {
-    Serial.println("In ALS mode");
+  Serial.println(ltrOK);
+  if (ltrOK) {
+    Serial.print("Found LTR sensor ");
+    ltr.setGain(LTR390_GAIN_3);
+    Serial.print("Gain : ");
+    Serial.println(mapLTRGain());
+    ltrUVGain = LTR390_GAIN_3;
+    ltrALGain = LTR390_GAIN_3;
+
+    ltr.setResolution(LTR390_RESOLUTION_16BIT);
+    Serial.print("Resolution : ");
+    Serial.println(mapLTRResoultion());
+
+    ltr.setThresholds(100, 1000);
+    ltr.configInterrupt(true, LTR390_MODE_UVS);
+  } else {
+    Serial.println("Not found LTR");
   }
-  else
-  {
-    Serial.println("In UVS mode");
-  }
 
-  ltr.setGain(LTR390_GAIN_3);
-  Serial.print("Gain : ");
-  Serial.println(mapLTRGain());
-
-  ltr.setResolution(LTR390_RESOLUTION_16BIT);
-  Serial.print("Resolution : ");
-  Serial.println(mapLTRResoultion());
-
-  ltr.setThresholds(100, 1000);
-  ltr.configInterrupt(true, LTR390_MODE_UVS);
-
+  retry = 4;
   /* 10channel light sensor set */
-  if (!as7341.begin())
-  {
-    Serial.println("Could not find AS7341");
-    while (1)
-    {
-      delay(10);
-    }
+  while (!as7341.begin() && retry > 0) {
+    Serial.print("Could not find AS7341");
+    Serial.println(retry);
+    retry--;
+    delay(200);
   }
 
-  as7341.setATIME(100);
-  as7341.setASTEP(999);
-  as7341.setGain(asGain);
+  asOK = !(retry == 0);
+  if (asOK) {
+    Serial.println("Found AS");
+
+    as7341.setATIME(100);
+    as7341.setASTEP(999);
+    as7341.setGain(asGain);
+  } else {
+    Serial.println("Not found as");
+  }
 }
 
 
 
 /** Loop */
-void loop()
-{
+void loop() {
   char buffer[100];
 
   /* raw uv count*/
-  uint32_t uv =0;
+  uint32_t uv = 0;
 
   /* raw visible count */
-  uint32_t als =0;
+  uint32_t als = 0;
 
   /* Light channels, corresponds to specific wavelength */
-  uint16_t  f1, f2, f3, f4, f5, f6, f7, f8;
-  uint16_t  clr, nir;
+  uint16_t f1=0, f2=0, f3=0, f4=0, f5=0, f6=0, f7=0, f8 = 0;
+  uint16_t clr=0, nir =0 ;
 
+  /* used gain values for LTR */
+  int usedUVGainh = 0;
+  int usedALGainh = 0;
+
+  Serial.println("---");
+  // enable the sensor
+  ltr.enable(true);
+  while (!ltr.enabled()) {
+    delay(10);
+  }
+
+  // Get the UV reading
   ltr.setMode(LTR390_MODE_UVS);
-  ltr.setThresholds(100, 1000);
-  ltr.configInterrupt(true, LTR390_MODE_UVS);
-
- 
-  if (!as7341.readAllChannels())
-  {
-    Serial.println("Error reading all channels!");
-    return;
+  ltr.setGain(ltrUVGain);
+  while (!ltr.newDataAvailable()) {
+    delay(10);
   }
-//  Serial.println("----");
-
- if (ltr.newDataAvailable())
-  {
-    uv = ltr.readUVS();
-  }
+  uv = ltr.readUVS();
+  usedUVGainh = mapLTRGain();
 
   ltr.setMode(LTR390_MODE_ALS);
-  ltr.setThresholds(100, 1000);
-  ltr.configInterrupt(true, LTR390_MODE_ALS);
+  ltr.setGain(ltrALGain);
+  while (!ltr.newDataAvailable()) {
+    delay(10);
+  }
+  als = ltr.readALS();
+  usedALGainh = mapLTRGain();
 
+  // Disable for power saving
+  ltr.enable(false);
 
-  f1 = as7341.getChannel(AS7341_CHANNEL_415nm_F1);
-  f2 = as7341.getChannel(AS7341_CHANNEL_445nm_F2);
-  f3 = as7341.getChannel(AS7341_CHANNEL_480nm_F3);
-  f4 = as7341.getChannel(AS7341_CHANNEL_515nm_F4);
-  f5 = as7341.getChannel(AS7341_CHANNEL_555nm_F5);
-  f6 = as7341.getChannel(AS7341_CHANNEL_590nm_F6);
-  f7 = as7341.getChannel(AS7341_CHANNEL_630nm_F7);
-  f8 = as7341.getChannel(AS7341_CHANNEL_680nm_F8);
-  clr = as7341.getChannel(AS7341_CHANNEL_CLEAR);
-  nir = as7341.getChannel(AS7341_CHANNEL_NIR);
+  if (ltrUVGain == LTR390_GAIN_3 && uv > 50000) {
+    ltrUVGain = LTR390_GAIN_1;
+  } else if (ltrUVGain == LTR390_GAIN_1 && uv < 10000) {
+    ltrUVGain = LTR390_GAIN_3;
+  }
 
+  if (ltrALGain == LTR390_GAIN_3 && als > 50000) {
+    ltrALGain = LTR390_GAIN_1;
+  } else if (ltrALGain == LTR390_GAIN_1 && als < 10000) {
+    ltrALGain = LTR390_GAIN_3;
+  }
 
+  /* ------------------------------------- */
+  if (asOK && as7341.readAllChannels()) {
+    f1 = as7341.getChannel(AS7341_CHANNEL_415nm_F1);
+    f2 = as7341.getChannel(AS7341_CHANNEL_445nm_F2);
+    f3 = as7341.getChannel(AS7341_CHANNEL_480nm_F3);
+    f4 = as7341.getChannel(AS7341_CHANNEL_515nm_F4);
+    f5 = as7341.getChannel(AS7341_CHANNEL_555nm_F5);
+    f6 = as7341.getChannel(AS7341_CHANNEL_590nm_F6);
+    f7 = as7341.getChannel(AS7341_CHANNEL_630nm_F7);
+    f8 = as7341.getChannel(AS7341_CHANNEL_680nm_F8);
+    clr = as7341.getChannel(AS7341_CHANNEL_CLEAR);
+    nir = as7341.getChannel(AS7341_CHANNEL_NIR);
+  }
 
   // Format the string for sending the raw data
   sprintf(buffer, "1:%u 2:%u 3:%u 4:%u 5:%u 6:%u 7:%u 8:%u", f1, f2, f3, f4, f5, f6, f7, f8);
@@ -233,15 +249,8 @@ void loop()
   driver.send((uint8_t *)buffer, strlen(buffer));
   driver.waitPacketSent();
 
-  if (ltr.newDataAvailable())
-  {
-    als = ltr.readALS();
-  }
-
-
-
   // record the gain values for the spectral sensor
-  sprintf(buffer, "spg:%d ltrg:%d ltrr:%d", mapASGain(), ltrGain, ltrResoultion);
+  sprintf(buffer, "spg:%d uvg:%d alg:%d ltrr:%d", mapASGain(), usedUVGainh, usedALGainh, ltrResoultion);
   Serial.println(buffer);
   driver.setHeaderId(5);
   driver.send((uint8_t *)buffer, strlen(buffer));
@@ -253,18 +262,11 @@ void loop()
   driver.send((uint8_t *)buffer, strlen(buffer));
   driver.waitPacketSent();
 
-  sprintf(buffer, "uv:%lu als:%lu", uv, als);
+  sprintf(buffer, "uv:%lu als:%lu ##%d:%d", uv, als, asOK,ltrOK);
   Serial.println(buffer);
   driver.setHeaderId(3);
   driver.send((uint8_t *)buffer, strlen(buffer));
   driver.waitPacketSent();
 
-  //  if (clr>40000) {
-  //    asGain=AS7341_GAIN_0_5X;
-  //    as7341.setGain(asGain);
-  //  } else if (clr<3000) {
-  //    asGain=AS7341_GAIN_1X;
-  //    as7341.setGain(asGain);
-  //  }
-  (void) Watchdog.sleep(MEASURE_INTERVAL);  
+  (void)Watchdog.sleep(MEASURE_INTERVAL);
 }
